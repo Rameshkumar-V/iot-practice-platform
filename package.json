@@ -12,6 +12,7 @@
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",
     "@monaco-editor/react": "^4.7.0",
+    "@reduxjs/toolkit": "^2.11.2",
     "@tailwindcss/vite": "^4.2.4",
     "@wokwi/elements": "^1.9.2",
     "class-variance-authority": "^0.7.1",
@@ -20,6 +21,7 @@
     "radix-ui": "^1.4.3",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+    "react-redux": "^9.2.0",
     "react-resizable-panels": "^4.10.0",
     "reactflow": "^11.11.4",
     "shadcn": "^4.4.0",

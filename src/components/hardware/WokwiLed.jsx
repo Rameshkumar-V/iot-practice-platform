@@ -37,7 +37,7 @@ const WokwiLed = ({ data }) => {
         <wokwi-led 
           ref={ledRef} 
           color={data?.color || 'red'} 
-          value={1} 
+          value={0} 
         />
         
         {/* ONLY render handles if we are inside the actual Canvas */}
