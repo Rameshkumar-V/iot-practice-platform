@@ -3,22 +3,30 @@ import { createSlice } from '@reduxjs/toolkit';
 const registrySlice = createSlice({
   name: 'registry',
   initialState: {
-    catalog: {}, // Keyed by component type (e.g., 'wokwi-led')
+    catalog: {
+      'hardwareLed': { 
+        type: 'hardwareLed', 
+        tagName: 'wokwi-led', 
+        name: 'Standard LED', 
+        category: 'ACTUATOR' 
+      },
+      'hardwareButton': { 
+        type: 'hardwareButton', 
+        tagName: 'wokwi-pushbutton', 
+        name: 'Push Button', 
+        category: 'INPUT' 
+      }
+    }
   },
   reducers: {
-    // Self-registration function called by components on mount
     registerComponentBlueprint: (state, action) => {
-      const { type, name, pins, category, svg } = action.payload;
-      
-      // Only update if the data has changed or is new
-      state.catalog[type] = {
-        type,
-        name,
-        pins,       // Dynamic pin list [ { name: 'VCC', x: 10, y: 20 }, ... ]
-        category,
-        svg,
-        lastRegistered: new Date().toISOString()
-      };
+      const { type, pins } = action.payload;
+      // Only update if we are adding new details (like pin coordinates)
+      if (state.catalog[type]) {
+        state.catalog[type].pins = pins;
+      } else {
+        state.catalog[type] = action.payload;
+      }
     }
   }
 });

@@ -3,39 +3,39 @@ import { createSlice } from '@reduxjs/toolkit';
 const workspaceSlice = createSlice({
   name: 'workspace',
   initialState: {
-    nodes: {}, // Stores instance data: { node_1: { type: 'led', signals: { anode: 0, cathode: 0 } } }
-    edges: []  // React Flow connection map
+    nodes: {}, 
+    edges: [],
+    logs: [{ msg: "Digital Twin Engine Active", type: "info" }],
   },
   reducers: {
-    updatePinSignal: (state, action) => {
-      const { nodeId, pinName, signalValue } = action.payload;
-      
-      // 1. Update the source pin
-      if (!state.nodes[nodeId]) return;
-      state.nodes[nodeId].signals[pinName] = signalValue;
-
-      // 2. Trace the wire to find targets
-      const connections = state.edges.filter(
-        edge => edge.source === nodeId && edge.sourceHandle === pinName
-      );
-
-      // 3. Propagate to every connected component's specific input pin
-      connections.forEach(wire => {
-        const targetNode = state.nodes[wire.target];
-        if (targetNode) {
-          targetNode.signals[wire.targetHandle] = signalValue;
-        }
-      });
+    addNodeToWorkspace: (state, action) => {
+      const { id, node } = action.payload;
+      state.nodes[id] = node;
     },
     syncWorkspaceNodes: (state, action) => {
-      // Syncs instances from React Flow canvas
       state.nodes = action.payload;
     },
     syncWorkspaceEdges: (state, action) => {
       state.edges = action.payload;
+    },
+    updatePinSignal: (state, action) => {
+      const { nodeId, pinName, signalValue } = action.payload;
+      if (state.nodes[nodeId]) {
+        if (!state.nodes[nodeId].data.signals) state.nodes[nodeId].data.signals = {};
+        state.nodes[nodeId].data.signals[pinName] = signalValue;
+      }
+
+      const connections = state.edges.filter(e => e.source === nodeId && e.sourceHandle === pinName);
+      connections.forEach(wire => {
+        const targetNode = state.nodes[wire.target];
+        if (targetNode) {
+          if (!targetNode.data.signals) targetNode.data.signals = {};
+          targetNode.data.signals[wire.targetHandle] = signalValue;
+        }
+      });
     }
-  }
+  },
 });
 
-export const { updatePinSignal, syncWorkspaceNodes, syncWorkspaceEdges } = workspaceSlice.actions;
-export default workspaceSlice.reducer;  
+export const { addNodeToWorkspace, syncWorkspaceNodes, syncWorkspaceEdges, updatePinSignal } = workspaceSlice.actions;
+export default workspaceSlice.reducer;

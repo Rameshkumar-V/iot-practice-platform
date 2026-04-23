@@ -1,64 +1,45 @@
-import React, { useState, useLayoutEffect, useRef } from 'react';
-import { Handle, Position, useReactFlow } from 'reactflow';
+import React, { useLayoutEffect, useRef, useState } from 'react';
+import { Handle, Position } from 'reactflow';
+import { useDispatch, useSelector } from 'react-redux';
+import { registerComponentBlueprint } from '@/store/registrySlice';
 import '@wokwi/elements';
 
-const WokwiLed = ({ data }) => {
+const WokwiLed = ({ id, data, isPreview = false }) => {
+  const dispatch = useDispatch();
   const ledRef = useRef(null);
   const [pins, setPins] = useState([]);
-  
-  // Safe check for React Flow context
-  let hasFlowContext = true;
-  try { 
-    useReactFlow(); 
-  } catch (e) { 
-    hasFlowContext = false; 
-  }
+  const signals = useSelector(state => state.workspace.nodes[id]?.data?.signals || {});
 
   useLayoutEffect(() => {
-    const interval = setInterval(() => {
-      if (ledRef.current?.pinInfo?.length > 0) {
-        setPins([...ledRef.current.pinInfo]);
-        clearInterval(interval);
+    const el = ledRef.current;
+    if (!el) return;
+    
+    let attempts = 0;
+    const poll = setInterval(() => {
+      if (el.pinInfo && el.pinInfo.length > 0 && el.pinInfo[0].x !== 0) {
+        setPins([...el.pinInfo]);
+        if (!isPreview) {
+          dispatch(registerComponentBlueprint({
+            type: 'hardwareLed',
+            tagName: 'wokwi-led',
+            pins: el.pinInfo
+          }));
+        }
+        clearInterval(poll);
       }
+      if (attempts++ > 40) clearInterval(poll);
     }, 100);
-    return () => clearInterval(interval);
-  }, []);
+    return () => clearInterval(poll);
+  }, [dispatch, isPreview]);
 
   return (
-    <div className="flex flex-col items-center">
-      {/* Hide label if in Navbar preview */}
-      {hasFlowContext && (
-        <div className="text-[9px] text-zinc-500 font-mono mb-2 uppercase pointer-events-none text-center">
-          {data?.label || 'LED'}
-        </div>
-      )}
-      
-      <div className="relative flex justify-center pointer-events-none" style={{ width: '40px', height: '50px' }}>
-        <wokwi-led 
-          ref={ledRef} 
-          color={data?.color || 'red'} 
-          value={0} 
-        />
-        
-        {/* ONLY render handles if we are inside the actual Canvas */}
-        {hasFlowContext && pins.map((pin) => (
-          <Handle
-            key={pin.name}
-            id={pin.name}
-            type="bidirectional"
-            position={Position.Top}
-            style={{
-              position: 'absolute',
-              left: `${pin.x}px`,
-              top: `${pin.y}px`,
-              background: '#3b82f6',
-              width: 8,
-              height: 8,
-              transform: 'translate(-50%, -50%)',
-              border: '2px solid white',
-              zIndex: 100,
-              pointerEvents: 'all'
-            }}
+    <div className={isPreview ? "" : "p-4 bg-zinc-900 border border-zinc-800 rounded-xl"}>
+      <div className="relative inline-block">
+        <wokwi-led ref={ledRef} color={data?.color || 'red'} value={signals['anode'] ? 1 : 0} />
+        {!isPreview && pins.map(p => (
+          <Handle 
+            key={p.name} id={p.name} type="bidirectional" position={Position.Top} 
+            style={{ position: 'absolute', left: p.x, top: p.y, background: '#3b82f6', width: 8, height: 8 }} 
           />
         ))}
       </div>
