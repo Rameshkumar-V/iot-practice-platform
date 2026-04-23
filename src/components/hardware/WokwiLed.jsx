@@ -1,47 +1,116 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
-import { Handle, Position } from 'reactflow';
-import { useDispatch, useSelector } from 'react-redux';
-import { registerComponentBlueprint } from '@/store/registrySlice';
-import '@wokwi/elements';
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Handle,
+  useUpdateNodeInternals,
+} from "@xyflow/react";
+
+import { useDispatch, useSelector } from "react-redux";
+import { registerComponentBlueprint } from "@/store/registrySlice";
+
+import "@wokwi/elements";
+const EMPTY_OBJ = {};
 
 const WokwiLed = ({ id, data, isPreview = false }) => {
   const dispatch = useDispatch();
+  const updateNodeInternals = useUpdateNodeInternals();
+// testing
+const isLedOn = useSelector((state) => state.test.isLedOn);
+
   const ledRef = useRef(null);
   const [pins, setPins] = useState([]);
-  const signals = useSelector(state => state.workspace.nodes[id]?.data?.signals || {});
 
-  useLayoutEffect(() => {
+   const signals = useSelector(
+    (state) => state.workspace.nodes[id]?.data?.signals ?? EMPTY_OBJ
+  );
+
+  useEffect(() => {
     const el = ledRef.current;
     if (!el) return;
-    
-    let attempts = 0;
+
+    let tries = 0;
+
     const poll = setInterval(() => {
-      if (el.pinInfo && el.pinInfo.length > 0 && el.pinInfo[0].x !== 0) {
-        setPins([...el.pinInfo]);
+      if (el.pinInfo && el.pinInfo.length > 0) {
+        const offsetX = el.offsetLeft;
+        const offsetY = el.offsetTop;
+
+        const correctedPins = el.pinInfo.map((pin) => ({
+          ...pin,
+          x: offsetX + pin.x,
+          y: offsetY + pin.y,
+        }));
+
+        setPins(correctedPins);
+        updateNodeInternals(id);
+
         if (!isPreview) {
-          dispatch(registerComponentBlueprint({
-            type: 'hardwareLed',
-            tagName: 'wokwi-led',
-            pins: el.pinInfo
-          }));
+          dispatch(
+            registerComponentBlueprint({
+              type: "hardwareLed",
+              tagName: "wokwi-led",
+              pins: correctedPins,
+            })
+          );
         }
+
         clearInterval(poll);
       }
-      if (attempts++ > 40) clearInterval(poll);
+
+      if (tries++ > 50) clearInterval(poll);
     }, 100);
+
     return () => clearInterval(poll);
-  }, [dispatch, isPreview]);
+  }, [dispatch, id, isPreview, updateNodeInternals]);
+
+  const pinStyle = (x, y, color, hidden = false) => ({
+    position: "absolute",
+    left: x,
+    top: y,
+    width: 12,
+    height: 12,
+    borderRadius: "50%",
+    transform: "translate(-50%, -50%)",
+    background: hidden ? "transparent" : color,
+    border: hidden ? "none" : "2px solid white",
+    opacity: hidden ? 0 : 1,
+    zIndex: 999,
+    cursor: "crosshair",
+  });
 
   return (
-    <div className={isPreview ? "" : "p-4 bg-zinc-900 border border-zinc-800 rounded-xl"}>
-      <div className="relative inline-block">
-        <wokwi-led ref={ledRef} color={data?.color || 'red'} value={signals['anode'] ? 1 : 0} />
-        {!isPreview && pins.map(p => (
-          <Handle 
-            key={p.name} id={p.name} type="bidirectional" position={Position.Top} 
-            style={{ position: 'absolute', left: p.x, top: p.y, background: '#3b82f6', width: 8, height: 8 }} 
-          />
-        ))}
+    <div className="relative">
+      <div
+        className="relative inline-block"
+        style={{ width: 80, height: 100 }}
+      >
+        <wokwi-led
+  ref={ledRef}
+  color={data?.color || "red"}
+  value={isLedOn
+  }
+/>
+{/* <pre>{JSON.stringify(signals, null, 2)}</pre> */}
+<pre>{isLedOn}</pre>
+  
+  
+        {!isPreview &&
+          pins.map((pin) => (
+            <React.Fragment key={pin.name}>
+              <Handle
+                id={`${pin.name}-out`}
+                type="source"
+                isConnectable
+                style={pinStyle(pin.x, pin.y, "#3b82f6")}
+              />
+  
+              <Handle
+                id={`${pin.name}-in`}
+                type="target"
+                isConnectable
+                style={pinStyle(pin.x, pin.y, "#3b82f6", true)}
+              />
+            </React.Fragment>
+          ))}
       </div>
     </div>
   );

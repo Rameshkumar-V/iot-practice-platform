@@ -15,7 +15,12 @@ const registrySlice = createSlice({
         tagName: 'wokwi-pushbutton', 
         name: 'Push Button', 
         category: 'INPUT' 
-      }
+      },'hardwareBuzzer': { 
+  type: 'hardwareBuzzer', 
+  tagName: 'wokwi-buzzer', 
+  name: 'Piezo Buzzer', 
+  category: 'OUTPUT' 
+},
     }
   },
   reducers: {

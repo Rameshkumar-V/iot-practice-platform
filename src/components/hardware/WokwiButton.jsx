@@ -1,12 +1,23 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
-import { Handle, Position } from 'reactflow';
-import { useDispatch, useSelector } from 'react-redux';
-import { registerComponentBlueprint } from '@/store/registrySlice';
-import { updatePinSignal } from '@/store/workspaceSlice';
-import '@wokwi/elements';
+import React, { useLayoutEffect, useRef, useState } from "react";
+import {
+  Handle,
+  useUpdateNodeInternals,
+} from "@xyflow/react";
+
+import { useDispatch } from "react-redux";
+import { registerComponentBlueprint } from "@/store/registrySlice";
+import { updatePinSignal } from "@/store/workspaceSlice";
+
+// testing
+
+import { setOn, setOff } from "@/store/testSlice";
+
+import "@wokwi/elements";
 
 const WokwiButton = ({ id, data, isPreview = false }) => {
   const dispatch = useDispatch();
+  const updateNodeInternals = useUpdateNodeInternals();
+
   const btnRef = useRef(null);
   const [pins, setPins] = useState([]);
 
@@ -14,71 +25,134 @@ const WokwiButton = ({ id, data, isPreview = false }) => {
     const el = btnRef.current;
     if (!el) return;
 
-    let attempts = 0;
+    let tries = 0;
+
     const poll = setInterval(() => {
-      // Logic: Wait until pins are defined and the button has a real width in the DOM
-      if (el.pinInfo && el.pinInfo.length > 0 && el.offsetWidth > 0) {
-        setPins([...el.pinInfo]);
-        
+      if (
+        el.pinInfo &&
+        el.pinInfo.length > 0 &&
+        el.offsetWidth > 0
+      ) {
+        const offsetX = el.offsetLeft;
+        const offsetY = el.offsetTop;
+
+        const correctedPins = el.pinInfo.map((pin) => ({
+          ...pin,
+          x: offsetX + pin.x,
+          y: offsetY + pin.y,
+        }));
+
+        setPins(correctedPins);
+        updateNodeInternals(id);
+
         if (!isPreview) {
-          dispatch(registerComponentBlueprint({
-            type: 'hardwareButton',
-            tagName: 'wokwi-pushbutton',
-            name: 'Push Button',
-            category: 'INPUT',
-            pins: el.pinInfo // Capture exact X/Y for this specific element
-          }));
+          dispatch(
+            registerComponentBlueprint({
+              type: "hardwareButton",
+              tagName: "wokwi-pushbutton",
+              name: "Push Button",
+              category: "INPUT",
+              pins: correctedPins,
+            })
+          );
         }
+
         clearInterval(poll);
       }
-      if (attempts++ > 40) clearInterval(poll);
+
+      if (tries++ > 50) clearInterval(poll);
     }, 100);
 
     return () => clearInterval(poll);
-  }, [dispatch, isPreview]);
+  }, [dispatch, id, isPreview, updateNodeInternals]);
 
-  // Handle Signal Emission
-  const handleAction = (val) => {
+  const handleAction = (value) => {
     if (isPreview) return;
-    // Pin '1' is typically the output pin for Wokwi buttons
-    dispatch(updatePinSignal({ 
-      nodeId: id, 
-      pinName: '1', 
-      signalValue: val 
-    }));
+
+    dispatch(
+      updatePinSignal({
+        nodeId: id,
+        pinName: "1",
+        signalValue: value,
+      })
+    );
   };
 
-  return (
-    <div className={`relative ${isPreview ? '' : 'p-6 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xl'}`}>
-      <div className="relative inline-block">
-        <wokwi-pushbutton 
-          ref={btnRef} 
-          color={data?.color || 'green'}
-          onMouseDown={() => handleAction(1)}
-          onMouseUp={() => handleAction(0)}
-          onTouchStart={() => handleAction(1)}
-          onTouchEnd={() => handleAction(0)}
-        />
+  const pinStyle = (x, y, color, hidden = false) => ({
+    position: "absolute",
+    left: x,
+    top: y,
+    width: 12,
+    height: 12,
+    borderRadius: "50%",
+    transform: "translate(-50%, -50%)",
+    background: hidden ? "transparent" : color,
+    border: hidden ? "none" : "2px solid white",
+    opacity: hidden ? 0 : 1,
+    zIndex: 999,
+    cursor: "crosshair",
+  });
 
-        {!isPreview && pins.map((p) => (
-          <Handle
-            key={p.name}
-            id={p.name}
-            type="bidirectional"
-            position={Position.Top}
-            style={{
-              position: 'absolute',
-              left: `${p.x}px`,
-              top: `${p.y}px`,
-              background: '#ef4444', // Red for input/button pins
-              width: 10,
-              height: 10,
-              transform: 'translate(-50%, -50%)',
-              border: '2px solid white',
-              zIndex: 100
-            }}
-          />
-        ))}
+  return (
+    <div className="relative">
+      <div
+        className="relative inline-block"
+        style={{ width: 100, height: 100 }}
+      >
+        <wokwi-pushbutton
+          ref={btnRef}
+          color={data?.color || "green"}
+          onMouseDown={() => handleAction(5)}
+          onPointerDown={() => {
+            // alert("hi"); 
+            dispatch(setOn());
+            
+          }}
+onMouseUp={() => {
+  // alert("hi");
+  dispatch(setOn());
+  
+}}
+onMouseLeave={() => {
+  // alert("end");
+  dispatch(setOff());
+  
+}}
+onTouchStart={() => {
+  // alert("hi");
+  dispatch(setOn());
+  
+}}
+onTouchEnd={() => {
+  // alert("end");
+  dispatch(setOff());
+  
+}}
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+          }}
+        />
+  
+        {!isPreview &&
+          pins.map((pin) => (
+            <React.Fragment key={pin.name}>
+              <Handle
+                id={`${pin.name}-out`}
+                type="source"
+                isConnectable
+                style={pinStyle(pin.x, pin.y, "#ef4444")}
+              />
+  
+              <Handle
+                id={`${pin.name}-in`}
+                type="target"
+                isConnectable
+                style={pinStyle(pin.x, pin.y, "#ef4444", true)}
+              />
+            </React.Fragment>
+          ))}
       </div>
     </div>
   );
